@@ -1,0 +1,7 @@
+{
+  "name": "fetching",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./undici.js",
+  "license": "MIT"
+}
