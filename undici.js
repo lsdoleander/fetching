@@ -36,7 +36,14 @@ const Cookie = {
 
 function bodytype(mimetype, body, output) {
 	return new Promise(async btresolve=>{
-		if (mimetype.type === "text" || /(json|xml)/.test(mimetype.subtype)){
+		if (mimetype === null) {
+			output.text = function(){
+				return new Promise(resolve=>{
+					resolve (text);
+				})
+			}
+			
+		} else if (mimetype.type === "text" || /(json|xml)/.test(mimetype.subtype)){
 			let text = await body.text();
 			if (/(x?html|xml)/.test(mimetype.subtype)) {
 				output.dom = function() {
@@ -56,13 +63,6 @@ function bodytype(mimetype, body, output) {
 						resolve (JSON.parse(text));
 					})
 				}
-			}
-			
-		} else if (mimetype === null) {
-			output.text = function(){
-				return new Promise(resolve=>{
-					resolve (text);
-				})
 			}
 
 		} else {
