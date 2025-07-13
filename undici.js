@@ -123,7 +123,7 @@ function proxyoption(proxy) {
 			let opts = { path, method: "HEAD" };
 			if (headers) opts.headers = headers;
 			else opts.headers = {};
-			opts.headers["Host"] = url.hostname;
+			opts.headers["Host"] = new URL(path).hostname;
 			if (token) opts.headers["Authorization"] = `Bearer ${token}`;
 			if (cookies) opts.headers["Cookie"] = Cookie.stringify(cookies);
 			if (query) opts.query = query;
@@ -144,7 +144,7 @@ function proxyoption(proxy) {
 			let opts = { path, method: "GET" };
 			if (headers) opts.headers = headers;
 			else opts.headers = {};
-			opts.headers["Host"] = url.hostname;
+			opts.headers["Host"] = new URL(path).hostname;
 			if (token) opts.headers["Authorization"] = `Bearer ${token}`;
 			if (cookies) opts.headers["Cookie"] = Cookie.stringify(cookies);
 			if (query) opts.query = query;
@@ -167,7 +167,7 @@ function proxyoption(proxy) {
 			let opts = { path, method: "POST" };
 			if (headers) opts.headers = headers;
 			else opts.headers = {};
-			opts.headers["Host"] = url.hostname;
+			opts.headers["Host"] = new URL(path).hostname;
 			if (token) opts.headers["Authorization"] = `Bearer ${token}`;
 			if (cookies) opts.headers["Cookie"] = Cookie.stringify(cookies);
 			if (redirect) opts.redirect = redirect;
