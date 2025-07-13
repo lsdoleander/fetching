@@ -114,6 +114,8 @@ function proxyoption(proxy) {
 }
 
 function API(url) {
+	process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+	
 	const client = new Client(url.origin);
 
 	function head(path, { headers, cookies, token, query, proxy }){
