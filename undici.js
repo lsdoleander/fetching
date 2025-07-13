@@ -1,18 +1,18 @@
 
-import { Client, parseMIMEType, ProxyAgent } from 'undici'
+import { request, parseMIMEType, ProxyAgent } from 'undici'
 import { socksDispatcher } from 'fetch-socks'
 import { load } from 'cheerio'
 
 import qs from 'node:querystring'
 
 
-export default function client(host) {
+/*export default function client(host) {
 	if (URL.canParse(host)){
 		return API(new URL(host))
 	} else {
 		throw new Error("initialize with URL: protocol://host:port only");
 	}
-}
+}*/
 
 const Cookie = {
 	stringify(cookies) {
@@ -113,12 +113,12 @@ function proxyoption(proxy) {
 	}
 }
 
-function API(url) {
+/*function API(url) {
 	process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
-	const client = new Client(url.origin);
+	#const client = new Client(url.origin);*/
 
-	function head(path, { headers, cookies, token, query, proxy }){
+	export function head(path, { headers, cookies, token, query, proxy }){
 		return new Promise(async resolve=>{
 			let opts = { path, method: "HEAD" };
 			if (headers) opts.headers = headers;
@@ -128,7 +128,7 @@ function API(url) {
 			if (cookies) opts.headers["Cookie"] = Cookie.stringify(cookies);
 			if (query) opts.query = query;
 			
-			const { statusCode, headers: rh } = await client.request(opts, proxyoption(proxy));
+			const { statusCode, headers: rh } = await request(opts, proxyoption(proxy));
 		
 			resolve({
 				ok: statusCode === 200,
@@ -139,7 +139,7 @@ function API(url) {
 		});
 	}
 
-	function get(path, { headers, cookies, token, query, proxy }){
+	export function get(path, { headers, cookies, token, query, proxy }){
 		return new Promise(async resolve=>{
 			let opts = { path, method: "GET" };
 			if (headers) opts.headers = headers;
@@ -149,7 +149,7 @@ function API(url) {
 			if (cookies) opts.headers["Cookie"] = Cookie.stringify(cookies);
 			if (query) opts.query = query;
 			
-			const { statusCode, headers: rh, body } = await client.request(opts, proxyoption(proxy));
+			const { statusCode, headers: rh, body } = await request(opts, proxyoption(proxy));
 			let ct = rh["content-type"];
 			let mimetype = ct ? parseMIMEType(ct) : null;
 
@@ -162,7 +162,7 @@ function API(url) {
 		});
 	}
 
-	function post(path, { headers, cookies, token, proxy, redirect, form, json, text }){
+	export function post(path, { headers, cookies, token, proxy, redirect, form, json, text }){
 		return new Promise(async resolve=>{
 			let opts = { path, method: "POST" };
 			if (headers) opts.headers = headers;
@@ -186,7 +186,7 @@ function API(url) {
 				opts.headers["Content-Length"] = opts.body.length;
 			}
 
-			const { statusCode, headers: rh, body } = await client.request(opts, proxyoption(proxy));
+			const { statusCode, headers: rh, body } = await request(opts, proxyoption(proxy));
 			let ct = rh["content-type"];
 			let mimetype = ct ? parseMIMEType(ct) : null;
 
@@ -199,9 +199,15 @@ function API(url) {
 		});
 	}
 
-	return {
+/*	return {
 		head,
 		get,
 		post
 	}
-}
+}*/
+
+	export default {
+		head,
+		get, 
+		post
+	}
