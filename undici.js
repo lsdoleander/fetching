@@ -5,15 +5,6 @@ import { load } from 'cheerio'
 
 import qs from 'node:querystring'
 
-
-/*export default function client(host) {
-	if (URL.canParse(host)){
-		return API(new URL(host))
-	} else {
-		throw new Error("initialize with URL: protocol://host:port only");
-	}
-}*/
-
 const Cookie = {
 	stringify(cookies) {
 		let output = ""
@@ -81,7 +72,7 @@ function bodytype(mimetype, body, output) {
 	})
 }
 
-function proxyoption(proxy) {
+function proxyoption(proxy, logger) {
 	if (!proxy) return
 
 	const socks = /socks([45]):\/\/(([^:]*):([^@]*)@)?([^:]*):(\d+)/;
@@ -98,6 +89,7 @@ function proxyoption(proxy) {
 		    opts.password = parts[4]
 		}
 
+		if (logger) logger.debug(opts);
 		return { dispatcher: socksDispatcher(opts) };
 	} else {
 		const http_s = /(https?):\/\/(([^:]*):([^@]*)@)?(.*)/;
@@ -109,105 +101,89 @@ function proxyoption(proxy) {
 		if (parts[2]) {
 		    opts.token = `Basic ${Buffer.from(parts[2]).toString('base64')}`;
 		}
+
+		if (logger) logger.debug(opts);
 		return { dispatcher: new ProxyAgent(opts) };
 	}
 }
 
-/*function API(url) {
-	process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+function options({ path, headers, cookies, token, method, logger, body, redirect }){
+	let opts = { path, method };
+	if (headers) opts.headers = headers;
+	else opts.headers = {};
+	opts.headers["Host"] = new URL(path).hostname;
+	if (token) opts.headers["Authorization"] = `Bearer ${token}`;
+	if (cookies) opts.headers["Cookie"] = Cookie.stringify(cookies);
+	if (query) opts.query = query;
+	if (body) opts.body = body;	
+	if (redirect) opts.redirect = redirect;
+	if (logger) logger.debug(opts);
+	return opts;
+}
 
-	#const client = new Client(url.origin);*/
-
-	export function head(path, { headers, cookies, token, query, proxy }){
-		return new Promise(async resolve=>{
-			let opts = { path, method: "HEAD" };
-			if (headers) opts.headers = headers;
-			else opts.headers = {};
-			opts.headers["Host"] = new URL(path).hostname;
-			if (token) opts.headers["Authorization"] = `Bearer ${token}`;
-			if (cookies) opts.headers["Cookie"] = Cookie.stringify(cookies);
-			if (query) opts.query = query;
-			
-			const { statusCode, headers: rh } = await request(opts, proxyoption(proxy));
-		
-			resolve({
-				ok: statusCode === 200,
-				status: statusCode,
-				headers: rh,
-				cookies: Cookie.parse(rh)
-			});
+export function head(path, { headers, cookies, token, query, proxy, logger=console }){
+	return new Promise(async resolve=>{
+		let opts = options({ method: "HEAD", path, headers, cookies, token, query, logger });
+		const { statusCode, headers: rh } = await request(opts, proxyoption(proxy, logger));
+	
+		resolve({
+			ok: statusCode === 200,
+			status: statusCode,
+			headers: rh,
+			cookies: Cookie.parse(rh)
 		});
-	}
+	});
+}
 
-	export function get(path, { headers, cookies, token, query, proxy }){
-		return new Promise(async resolve=>{
-			let opts = { path, method: "GET" };
-			if (headers) opts.headers = headers;
-			else opts.headers = {};
-			opts.headers["Host"] = new URL(path).hostname;
-			if (token) opts.headers["Authorization"] = `Bearer ${token}`;
-			if (cookies) opts.headers["Cookie"] = Cookie.stringify(cookies);
-			if (query) opts.query = query;
-			
-			const { statusCode, headers: rh, body } = await request(opts, proxyoption(proxy));
-			let ct = rh["content-type"];
-			let mimetype = ct ? parseMIMEType(ct) : null;
+export function get(path, { headers, cookies, token, query, proxy, logger=console }){
+	return new Promise(async resolve=>{
+		let opts = options({ method: "GET", path, headers, cookies, token, query, logger });			
+		const { statusCode, headers: rh, body } = await request(opts, proxyoption(proxy, logger));
+		let ct = rh["content-type"];
+		let mimetype = ct ? parseMIMEType(ct) : null;
 
-			resolve(await bodytype(mimetype, body, {
-				ok: statusCode === 200,
-				status: statusCode,
-				headers: rh,
-				cookies: Cookie.parse(rh)
-			}));
-		});
-	}
+		resolve(await bodytype(mimetype, body, {
+			ok: statusCode === 200,
+			status: statusCode,
+			headers: rh,
+			cookies: Cookie.parse(rh)
+		}));
+	});
+}
 
-	export function post(path, { headers, cookies, token, proxy, redirect, form, json, text }){
-		return new Promise(async resolve=>{
-			let opts = { path, method: "POST" };
-			if (headers) opts.headers = headers;
-			else opts.headers = {};
-			opts.headers["Host"] = new URL(path).hostname;
-			if (token) opts.headers["Authorization"] = `Bearer ${token}`;
-			if (cookies) opts.headers["Cookie"] = Cookie.stringify(cookies);
-			if (redirect) opts.redirect = redirect;
+export function post(path, { headers, cookies, token, redirect, form, json, text, proxy, logger=console }){
+	return new Promise(async resolve=>{
+		let body;
+		if (json) {
+			body = (typeof json === "object") ? JSON.stringify(json) : json;
+			headers["Content-Type"] = "application/json; charset=utf-8";
+		} else if (form) {
+			body = (typeof form === "object") ? qs.stringify(form) : form;
+			headers["Content-Type"] = "application/x-www-form-urlencoded";
+		} else if (text) {
+			body = text;
+			headers["Content-Type"] = "text/plain";
+		}
+		if (body) {
+			headers["Content-Length"] = body.length;
+		}
 
-			if (json) {
-				opts.body = (typeof json === "object") ? JSON.stringify(json) : json;
-				opts.headers["Content-Type"] = "application/json; charset=utf-8";
-			} else if (form) {
-				opts.body = (typeof form === "object") ? qs.stringify(form) : form;
-				opts.headers["Content-Type"] = "application/x-www-form-urlencoded";
-			} else if (text) {
-				opts.body = text;
-				opts.headers["Content-Type"] = "text/plain";
-			}
-			if (opts.body) {
-				opts.headers["Content-Length"] = opts.body.length;
-			}
+		let opts = options({ method: "POST", path, headers, cookies, token, redirect, body, logger });
+		const { statusCode, headers: rh, body } = await request(opts, proxyoption(proxy, logger));
+		let ct = rh["content-type"];
+		let mimetype = ct ? parseMIMEType(ct) : null;
 
-			const { statusCode, headers: rh, body } = await request(opts, proxyoption(proxy));
-			let ct = rh["content-type"];
-			let mimetype = ct ? parseMIMEType(ct) : null;
+		resolve(await bodytype(mimetype, body, {
+			ok: statusCode === 200,
+			status: statusCode,
+			headers: rh,
+			cookies: Cookie.parse(rh)
+		}));
+	});
+}
 
-			resolve(await bodytype(mimetype, body, {
-				ok: statusCode === 200,
-				status: statusCode,
-				headers: rh,
-				cookies: Cookie.parse(rh)
-			}));
-		});
-	}
-
-/*	return {
-		head,
-		get,
-		post
-	}
-}*/
-
-	export default {
-		head,
-		get, 
-		post
-	}
+export default {
+	head,
+	get, 
+	post
+}
