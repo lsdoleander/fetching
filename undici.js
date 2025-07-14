@@ -107,7 +107,7 @@ function proxyoption(proxy, logger) {
 	}
 }
 
-function options({ path, headers, cookies, token, method, logger, body, redirect }){
+function options({ path, headers, cookies, token, method, logger, query, body, redirect }){
 	let opts = { path, method };
 	if (headers) opts.headers = headers;
 	else opts.headers = {};
