@@ -169,11 +169,11 @@ export function post(path, { headers, cookies, token, redirect, form, json, text
 		}
 
 		let opts = options({ method: "POST", path, headers, cookies, token, redirect, body, logger });
-		const { statusCode, headers: rh, body } = await request(opts, proxyoption(proxy, logger));
+		const { statusCode, headers: rh, body: rb } = await request(opts, proxyoption(proxy, logger));
 		let ct = rh["content-type"];
 		let mimetype = ct ? parseMIMEType(ct) : null;
 
-		resolve(await bodytype(mimetype, body, {
+		resolve(await bodytype(mimetype, rb, {
 			ok: statusCode === 200,
 			status: statusCode,
 			headers: rh,
