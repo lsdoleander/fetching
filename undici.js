@@ -1,5 +1,5 @@
 
-import { request, parseMIMEType, ProxyAgent } from 'undici'
+import { Client, request, fetch, parseMIMEType, ProxyAgent } from 'undici'
 import { socksDispatcher } from 'fetch-socks'
 import { load } from 'cheerio'
 
@@ -72,43 +72,59 @@ function bodytype(mimetype, body, output) {
 	})
 }
 
-function proxyoption(proxy, logger) {
-	if (!proxy) return
-
+function proxyrequest(proxy, logger, path, task) {
 	const socks = /socks([45]):\/\/(([^:]*):([^@]*)@)?([^:]*):(\d+)/;
-	if (socks.test(proxy)){
+
+	if (!proxy) {
+		const client = new Client(new URL(path).origin);
+		task.path = path;
+		return client.request(task);
+
+	} else if (socks.test(proxy)){
 		let parts = proxy.match(socks);
 
 		let opts = {
-		    type: parts[1],
-		    host: parts[5],
-		    port: parts[6]
+		    type: parseInt(parts[1]),
+		    host: parts[5]
 		};
+		if (parts[6]) opts.port = parseInt(parts[6])
 		if (parts[2]) {
 		    opts.userId = parts[3]
 		    opts.password = parts[4]
 		}
 
 		if (logger) logger.debug(opts);
-		return { dispatcher: socksDispatcher(opts) };
+		task.dispatcher = socksDispatcher(opts, {
+		    connect: {
+		        rejectUnauthorized: false,
+		    },
+		});
+
+		return request(path, task);
+
 	} else {
-		const http_s = /(https?):\/\/(([^:]*):([^@]*)@)?(.*)/;
+		const http_s = /(https?:\/\/)(?:([^:]*:[^@]*)@)?(.*)/;
 		let parts = proxy.match(http_s);
-		
+
 		let opts = {
-	      uri: `${parts[1]}://${parts[5]}`
+	    	uri: `${parts[1]}${parts[3]}`,
+	      	requestTls: {
+		         rejectUnauthorized: false,
+		    }
 	    };
 		if (parts[2]) {
 		    opts.token = `Basic ${Buffer.from(parts[2]).toString('base64')}`;
 		}
 
 		if (logger) logger.debug(opts);
-		return { dispatcher: new ProxyAgent(opts) };
+		task.dispatcher = new ProxyAgent(opts);
+
+		return request(path, task);
 	}
 }
 
-function options({ path, headers, cookies, token, method, logger, query, body, redirect }){
-	let opts = { path, method };
+function dispatchoptions({ path, headers, cookies, token, method, logger, query, body, redirect }){
+	let opts = { method };
 	if (headers) opts.headers = headers;
 	else opts.headers = {};
 	opts.headers["Host"] = new URL(path).hostname;
@@ -121,64 +137,103 @@ function options({ path, headers, cookies, token, method, logger, query, body, r
 	return opts;
 }
 
-export function head(path, { headers, cookies, token, query, proxy, logger=console }){
+function mime(headers){
+	let content = headers["content-type"];
+	return content ? parseMIMEType(content) : null;
+}
+
+const defaultlogger = {
+	log: console.log,
+	debug (...msg){
+		if (process.argv.includes("--verbose")) console.debug(...msg);
+	}
+}
+
+export function head(path, options={}){
 	return new Promise(async resolve=>{
-		let opts = options({ method: "HEAD", path, headers, cookies, token, query, logger });
-		const { statusCode, headers: rh } = await request(opts, proxyoption(proxy, logger));
-	
-		resolve({
-			ok: statusCode === 200,
-			status: statusCode,
-			headers: rh,
-			cookies: Cookie.parse(rh)
-		});
+		try {
+			const { headers, cookies, token, query, proxy, logger=defaultlogger } = options;
+			let opts = dispatchoptions({ method: "HEAD", path, headers, cookies, token, query, logger });
+			const { statusCode, headers: rh } = await proxyrequest(proxy, logger, path, opts);
+		
+			resolve({
+				ok: statusCode === 200,
+				status: statusCode,
+				headers: rh,
+				cookies: Cookie.parse(rh)
+			});
+			
+		} catch (e) {
+			resolve({
+				ok: false,
+				error: e,
+				status: 400
+			})
+		}
 	});
 }
 
-export function get(path, { headers, cookies, token, query, proxy, logger=console }){
+export function get(path, options={}){
 	return new Promise(async resolve=>{
-		let opts = options({ method: "GET", path, headers, cookies, token, query, logger });			
-		const { statusCode, headers: rh, body } = await request(opts, proxyoption(proxy, logger));
-		let ct = rh["content-type"];
-		let mimetype = ct ? parseMIMEType(ct) : null;
+		try {
+			const { headers, cookies, token, query, proxy, logger=defaultlogger } = options;
+			let opts = dispatchoptions({ method: "GET", path, headers, cookies, token, query, logger });
+			const { statusCode, headers: rh, body: rb } = await proxyrequest(proxy, logger, path, opts);
+			let mimetype = mime(rh);
 
-		resolve(await bodytype(mimetype, body, {
-			ok: statusCode === 200,
-			status: statusCode,
-			headers: rh,
-			cookies: Cookie.parse(rh)
-		}));
+			resolve(await bodytype(mimetype, rb, {
+				ok: statusCode === 200,
+				status: statusCode,
+				headers: rh,
+				cookies: Cookie.parse(rh)
+			}));
+		} catch (e) {
+			resolve({
+				ok: false,
+				error: e,
+				status: 400
+			})
+		}
 	});
 }
 
-export function post(path, { headers, cookies, token, redirect, form, json, text, proxy, logger=console }){
+export function post(path, options={}){
 	return new Promise(async resolve=>{
-		let body;
-		if (json) {
-			body = (typeof json === "object") ? JSON.stringify(json) : json;
-			headers["Content-Type"] = "application/json; charset=utf-8";
-		} else if (form) {
-			body = (typeof form === "object") ? qs.stringify(form) : form;
-			headers["Content-Type"] = "application/x-www-form-urlencoded";
-		} else if (text) {
-			body = text;
-			headers["Content-Type"] = "text/plain";
-		}
-		if (body) {
-			headers["Content-Length"] = body.length;
-		}
+		try {
+			const { headers, cookies, token, redirect, form, json, text, proxy, logger=defaultlogger } = options;
 
-		let opts = options({ method: "POST", path, headers, cookies, token, redirect, body, logger });
-		const { statusCode, headers: rh, body: rb } = await request(opts, proxyoption(proxy, logger));
-		let ct = rh["content-type"];
-		let mimetype = ct ? parseMIMEType(ct) : null;
+			let body;
+			if (json) {
+				body = (typeof json === "object") ? JSON.stringify(json) : json;
+				headers["Content-Type"] = "application/json; charset=utf-8";
+			} else if (form) {
+				body = (typeof form === "object") ? qs.stringify(form) : form;
+				headers["Content-Type"] = "application/x-www-form-urlencoded";
+			} else if (text) {
+				body = text;
+				headers["Content-Type"] = "text/plain";
+			}
+			if (body) {
+				headers["Content-Length"] = body.length;
+			}
 
-		resolve(await bodytype(mimetype, rb, {
-			ok: statusCode === 200,
-			status: statusCode,
-			headers: rh,
-			cookies: Cookie.parse(rh)
-		}));
+			let opts = dispatchoptions({ method: "POST", path, headers, cookies, token, redirect, body, logger });
+			const { statusCode, headers: rh, body: rb } = await proxyrequest(proxy, logger, path, opts);
+			let mimetype = mime(rh);
+
+			resolve(await bodytype(mimetype, rb, {
+				ok: statusCode === 200,
+				status: statusCode,
+				headers: rh,
+				cookies: Cookie.parse(rh)
+			}));
+		} catch (e) {
+			resolve({
+				ok: false,
+				error: e,
+				status: 400
+			})
+		}
 	});
 }
 
