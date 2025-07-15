@@ -76,10 +76,12 @@ function proxyrequest(proxy, logger, path, task) {
 	const socks = /socks([45]):\/\/(([^:]*):([^@]*)@)?([^:]*):(\d+)/;
 
 	if (!proxy) {
-		const client = new Client(new URL(path).origin);
-		task.path = path;
-		return client.request(task);
+		//const client = new Client(new URL(path).origin);
+		//task.path = path;
+		//return client.request(task);
 
+		return request(path, task);
+		
 	} else if (socks.test(proxy)){
 		let parts = proxy.match(socks);
 
@@ -164,6 +166,7 @@ export function head(path, options={}){
 			});
 			
 		} catch (e) {
+			logger.debug(e)
 			resolve({
 				ok: false,
 				error: e,
@@ -188,6 +191,7 @@ export function get(path, options={}){
 				cookies: Cookie.parse(rh)
 			}));
 		} catch (e) {
+			logger.debug(e)
 			resolve({
 				ok: false,
 				error: e,
@@ -228,6 +232,7 @@ export function post(path, options={}){
 				cookies: Cookie.parse(rh)
 			}));
 		} catch (e) {
+			logger.debug(e)
 			resolve({
 				ok: false,
 				error: e,
