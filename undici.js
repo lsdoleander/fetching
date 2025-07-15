@@ -152,9 +152,10 @@ const defaultlogger = {
 }
 
 export function head(path, options={}){
+	const { headers, cookies, token, query, proxy, logger=defaultlogger } = options;
+	
 	return new Promise(async resolve=>{
 		try {
-			const { headers, cookies, token, query, proxy, logger=defaultlogger } = options;
 			let opts = dispatchoptions({ method: "HEAD", path, headers, cookies, token, query, logger });
 			const { statusCode, headers: rh } = await proxyrequest(proxy, logger, path, opts);
 		
@@ -177,9 +178,10 @@ export function head(path, options={}){
 }
 
 export function get(path, options={}){
+	const { headers, cookies, token, query, proxy, logger=defaultlogger } = options;
+
 	return new Promise(async resolve=>{
 		try {
-			const { headers, cookies, token, query, proxy, logger=defaultlogger } = options;
 			let opts = dispatchoptions({ method: "GET", path, headers, cookies, token, query, logger });
 			const { statusCode, headers: rh, body: rb } = await proxyrequest(proxy, logger, path, opts);
 			let mimetype = mime(rh);
@@ -202,10 +204,10 @@ export function get(path, options={}){
 }
 
 export function post(path, options={}){
+	const { headers, cookies, token, redirect, form, json, text, proxy, logger=defaultlogger } = options;
+	
 	return new Promise(async resolve=>{
 		try {
-			const { headers, cookies, token, redirect, form, json, text, proxy, logger=defaultlogger } = options;
-
 			let body;
 			if (json) {
 				body = (typeof json === "object") ? JSON.stringify(json) : json;
