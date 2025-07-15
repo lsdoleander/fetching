@@ -81,7 +81,7 @@ function proxyrequest(proxy, logger, path, task) {
 		//return client.request(task);
 
 		return request(path, task);
-		
+
 	} else if (socks.test(proxy)){
 		let parts = proxy.match(socks);
 
@@ -95,7 +95,7 @@ function proxyrequest(proxy, logger, path, task) {
 		    opts.password = parts[4]
 		}
 
-		if (logger) logger.debug(opts);
+		//if (logger) logger.debug(opts);
 		task.dispatcher = socksDispatcher(opts, {
 		    connect: {
 		        rejectUnauthorized: false,
@@ -118,7 +118,7 @@ function proxyrequest(proxy, logger, path, task) {
 		    opts.token = `Basic ${Buffer.from(parts[2]).toString('base64')}`;
 		}
 
-		if (logger) logger.debug(opts);
+		//if (logger) logger.debug(opts);
 		task.dispatcher = new ProxyAgent(opts);
 
 		return request(path, task);
@@ -135,7 +135,7 @@ function dispatchoptions({ path, headers, cookies, token, method, logger, query,
 	if (query) opts.query = query;
 	if (body) opts.body = body;	
 	if (redirect) opts.redirect = redirect;
-	if (logger) logger.debug(opts);
+	//if (logger) logger.debug(opts);
 	return opts;
 }
 
