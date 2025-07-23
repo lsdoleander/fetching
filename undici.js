@@ -31,6 +31,7 @@ const Cookie = {
 function bodytype(mimetype, body, output) {
 	return new Promise(async btresolve=>{
 		if (mimetype === null) {
+			let text = await body.text();
 			output.text = function(){
 				return new Promise(resolve=>{
 					resolve (text);
